@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的小饭馆</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-box {
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>我的小饭馆</h1>
+    <div class="form-box">
+        <h2>登录 / 注册</h2>
+        <input type="text" id="username" placeholder="用户名">
+        <input type="password" id="password" placeholder="密码">
+        <input type="text" id="nickname" placeholder="昵称（新用户可选）">
+        <button onclick="login()">进入游戏</button>
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+    <script>
+        function showResult(message, isSuccess) {
+            const el = document.getElementById('result');
+            el.textContent = message;
+            el.style.display = 'block';
+            el.className = 'result ' + (isSuccess ? 'success' : 'error');
+        }
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const nickname = document.getElementById('nickname').value;
+            try {
+                const response = await fetch('/api/player/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, nickname })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showResult('欢迎 ' + data.nickname + '！等级: ' + data.level + '，金币: ' + data.balance + '，红包: ' + data.redPacket + '，点赞: ' + data.likeCount + '，客流: ' + data.totalGuests, true);
+                } else {
+                    showResult(data.message || '登录失败', false);
+                }
+            } catch (e) {
+                showResult('请求失败: ' + e.message, false);
+            }
+        }
+    </script>
+</body>
+</html>

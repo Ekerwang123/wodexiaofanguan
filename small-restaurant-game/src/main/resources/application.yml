@@ -1,7 +1,10 @@
 server:
-  port: 8080
+  port: 52341
 
 spring:
+  devtools:
+    restart:
+      enabled: false
   datasource:
     url: jdbc:mysql://localhost:3306/restaurant_game?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8
     username: root
