@@ -1,16 +1,19 @@
 package com.smallrestaurant.game.entity;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 @Entity
-@Table(name = "restaurant_tables")
+@Table(name = "t_table")
+@DynamicUpdate
 public class RestaurantTable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "table_id")
+    private Long tableId;
     @Column(nullable = false)
-    private Long userId;
+    private Long playerId;
     @Column(nullable = false)
     private int positionX;
     @Column(nullable = false)
@@ -23,16 +26,16 @@ public class RestaurantTable {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
     public RestaurantTable() {}
-    public RestaurantTable(Long userId, int positionX, int positionY, boolean unlocked) {
-        this.userId = userId;
+    public RestaurantTable(Long playerId, int positionX, int positionY, boolean unlocked) {
+        this.playerId = playerId;
         this.positionX = positionX;
         this.positionY = positionY;
         this.unlocked = unlocked;
     }
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public Long getTableId() { return tableId; }
+    public void setTableId(Long tableId) { this.tableId = tableId; }
+    public Long getPlayerId() { return playerId; }
+    public void setPlayerId(Long playerId) { this.playerId = playerId; }
     public int getPositionX() { return positionX; }
     public void setPositionX(int positionX) { this.positionX = positionX; }
     public int getPositionY() { return positionY; }

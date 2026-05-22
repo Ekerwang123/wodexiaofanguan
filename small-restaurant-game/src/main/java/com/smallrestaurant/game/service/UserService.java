@@ -36,7 +36,7 @@ public class UserService {
         restaurantTableRepository.save(new RestaurantTable(user.getId(), 1, 1, true));
         restaurantTableRepository.save(new RestaurantTable(user.getId(), 1, 2, true));
         restaurantTableRepository.save(new RestaurantTable(user.getId(), 1, 3, true));
-        stoveRepository.save(new Stove(user.getId(), 1, 1, true));
+        stoveRepository.save(new Stove(user.getId(), 1, true));
         return user;
     }
     public User login(String username, String password) {

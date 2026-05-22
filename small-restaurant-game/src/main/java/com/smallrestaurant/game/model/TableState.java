@@ -8,6 +8,7 @@ public class TableState {
     private String guestName;
     private Integer patience;
     private String requiredDish;
+    private Long servingDishId;
     public TableState() {}
     public TableState(Long tableId, int positionX, int positionY, boolean unlocked) {
         this.tableId = tableId;
@@ -32,4 +33,6 @@ public class TableState {
     public void setPatience(Integer patience) { this.patience = patience; }
     public String getRequiredDish() { return requiredDish; }
     public void setRequiredDish(String requiredDish) { this.requiredDish = requiredDish; }
+    public Long getServingDishId() { return servingDishId; }
+    public void setServingDishId(Long servingDishId) { this.servingDishId = servingDishId; }
 }

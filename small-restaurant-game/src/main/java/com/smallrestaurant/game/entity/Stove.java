@@ -1,42 +1,40 @@
 package com.smallrestaurant.game.entity;
 import jakarta.persistence.*;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 @Entity
-@Table(name = "stoves")
+@Table(name = "t_stove")
+@DynamicUpdate
 public class Stove {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "stove_id")
+    private Long stoveId;
     @Column(nullable = false)
-    private Long userId;
+    private Long playerId;
     @Column(nullable = false)
-    private int positionX;
-    @Column(nullable = false)
-    private int positionY;
-    @Column(columnDefinition = "boolean default true")
-    private boolean unlocked = true;
+    private int stoveIndex;
+    @Column(name = "is_unlocked", columnDefinition = "boolean default false")
+    private boolean unlocked = false;
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
     @UpdateTimestamp
     private LocalDateTime updatedAt;
     public Stove() {}
-    public Stove(Long userId, int positionX, int positionY, boolean unlocked) {
-        this.userId = userId;
-        this.positionX = positionX;
-        this.positionY = positionY;
+    public Stove(Long playerId, int stoveIndex, boolean unlocked) {
+        this.playerId = playerId;
+        this.stoveIndex = stoveIndex;
         this.unlocked = unlocked;
     }
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
-    public int getPositionX() { return positionX; }
-    public void setPositionX(int positionX) { this.positionX = positionX; }
-    public int getPositionY() { return positionY; }
-    public void setPositionY(int positionY) { this.positionY = positionY; }
+    public Long getStoveId() { return stoveId; }
+    public void setStoveId(Long stoveId) { this.stoveId = stoveId; }
+    public Long getPlayerId() { return playerId; }
+    public void setPlayerId(Long playerId) { this.playerId = playerId; }
+    public int getStoveIndex() { return stoveIndex; }
+    public void setStoveIndex(int stoveIndex) { this.stoveIndex = stoveIndex; }
     public boolean isUnlocked() { return unlocked; }
     public void setUnlocked(boolean unlocked) { this.unlocked = unlocked; }
     public LocalDateTime getCreatedAt() { return createdAt; }
