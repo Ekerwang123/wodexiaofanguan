@@ -1,4 +1,5 @@
 package com.smallrestaurant.game.service;
+
 import com.smallrestaurant.game.entity.Player;
 import com.smallrestaurant.game.entity.RestaurantTable;
 import com.smallrestaurant.game.model.TableState;
@@ -7,18 +8,32 @@ import com.smallrestaurant.game.repository.RestaurantTableRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+
 @Service
 public class TableService {
+
     @Autowired
     private RestaurantTableRepository restaurantTableRepository;
     @Autowired
     private PlayerRepository playerRepository;
     private final Map<Long, Map<Long, TableState>> tableStateCache = new ConcurrentHashMap<>();
+    private final Map<String, ReentrantLock> tableLocks = new ConcurrentHashMap<>();
+
+    private String lockKey(Long playerId, Long tableId) {
+        return playerId + ":" + tableId;
+    }
+
+    public ReentrantLock getTableLock(Long playerId, Long tableId) {
+        return tableLocks.computeIfAbsent(lockKey(playerId, tableId), k -> new ReentrantLock());
+    }
+
     public List<TableState> getPlayerTables(Long playerId) {
         List<RestaurantTable> tables = restaurantTableRepository.findByPlayerIdOrderByPositionX(playerId);
         tableStateCache.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
@@ -27,17 +42,24 @@ public class TableService {
         for (RestaurantTable table : tables) {
             TableState state = states.computeIfAbsent(table.getTableId(),
                     id -> new TableState(id, table.getPositionX(), table.getPositionY(), table.isUnlocked()));
-            state.setUnlocked(table.isUnlocked());
-            if (!state.isUnlocked()) {
-                state.setStatus("locked");
-                state.setGuestName(null);
-                state.setPatience(null);
-                state.setRequiredDish(null);
+            ReentrantLock lock = getTableLock(playerId, table.getTableId());
+            lock.lock();
+            try {
+                state.setUnlocked(table.isUnlocked());
+                if (!state.isUnlocked()) {
+                    state.setStatus("locked");
+                    state.setGuestName(null);
+                    state.setPatience(null);
+                    state.setRequiredDish(null);
+                }
+            } finally {
+                lock.unlock();
             }
             result.add(state);
         }
         return result;
     }
+
     public TableState getTableState(Long playerId, Long tableId) {
         Map<Long, TableState> states = tableStateCache.get(playerId);
         if (states != null) {
@@ -45,10 +67,12 @@ public class TableService {
         }
         return null;
     }
+
     public void updateTableState(Long playerId, Long tableId, TableState state) {
         tableStateCache.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
         tableStateCache.get(playerId).put(tableId, state);
     }
+
     @Transactional
     public Map<String, Object> unlockTable(Long playerId, int tableIndex) {
         if (tableIndex < 1 || tableIndex > 9) {
@@ -66,7 +90,7 @@ public class TableService {
         if (table.isUnlocked()) {
             throw new RuntimeException("餐桌已解锁");
         }
-        Player player = playerRepository.findById(playerId)
+        Player player = playerRepository.findWithLockById(playerId)
                 .orElseThrow(() -> new RuntimeException("玩家不存在"));
         if (player.getBalance() < price) {
             throw new RuntimeException("余额不足，解锁该餐桌需要 " + price + "，当前余额 " + player.getBalance());
@@ -75,11 +99,17 @@ public class TableService {
         playerRepository.save(player);
         table.setUnlocked(true);
         restaurantTableRepository.save(table);
-        Map<Long, TableState> states = tableStateCache.get(playerId);
-        if (states != null && states.containsKey(table.getTableId())) {
-            TableState state = states.get(table.getTableId());
-            state.setUnlocked(true);
-            state.setStatus("empty");
+        ReentrantLock lock = getTableLock(playerId, table.getTableId());
+        lock.lock();
+        try {
+            Map<Long, TableState> states = tableStateCache.get(playerId);
+            if (states != null && states.containsKey(table.getTableId())) {
+                TableState state = states.get(table.getTableId());
+                state.setUnlocked(true);
+                state.setStatus("empty");
+            }
+        } finally {
+            lock.unlock();
         }
         Map<String, Object> result = new HashMap<>();
         result.put("tableId", table.getTableId());

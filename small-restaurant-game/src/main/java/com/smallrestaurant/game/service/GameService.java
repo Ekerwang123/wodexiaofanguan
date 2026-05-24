@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 @Service
 public class GameService {
     @Autowired
@@ -45,21 +46,35 @@ public class GameService {
         if (!tableState.isUnlocked()) {
             throw new RuntimeException("餐桌未解锁");
         }
-        if (!"empty".equals(tableState.getStatus())) {
-            throw new RuntimeException("餐桌非空闲状态");
+        ReentrantLock tableLock = tableService.getTableLock(playerId, tableId);
+        tableLock.lock();
+        try {
+            if (!"empty".equals(tableState.getStatus())) {
+                throw new RuntimeException("餐桌非空闲状态");
+            }
+            tableState.setStatus("reserving");
+        } finally {
+            tableLock.unlock();
         }
         Player player = playerRepository.findById(playerId)
                 .orElseThrow(() -> new RuntimeException("玩家不存在"));
         List<GuestType> availableGuests = guestTypeRepository.findByUnlockLevelLessThanEqual(player.getLevel());
         if (availableGuests.isEmpty()) {
+            tableLock.lock();
+            try { tableState.setStatus("empty"); } finally { tableLock.unlock(); }
             throw new RuntimeException("没有可用的客人类型");
         }
         GuestType guestType = availableGuests.get((int) (Math.random() * availableGuests.size()));
         Dish dish = dishRepository.findById(guestType.getDishId())
                 .orElseThrow(() -> new RuntimeException("菜品不存在"));
-        tableState.setStatus("waiting");
-        tableState.setGuestName(guestType.getGuestName());
-        tableState.setRequiredDish(dish.getName());
+        tableLock.lock();
+        try {
+            tableState.setStatus("waiting");
+            tableState.setGuestName(guestType.getGuestName());
+            tableState.setRequiredDish(dish.getName());
+        } finally {
+            tableLock.unlock();
+        }
         tableService.updateTableState(playerId, tableId, tableState);
         Map<String, Object> result = new HashMap<>();
         result.put("tableId", tableId);
@@ -141,13 +156,21 @@ public class GameService {
         if (tableState == null) {
             throw new RuntimeException("餐桌不存在");
         }
-        if (!"dining".equals(tableState.getStatus())) {
-            throw new RuntimeException("餐桌上没有正在用餐的客人");
+        ReentrantLock tableLock = tableService.getTableLock(playerId, tableId);
+        tableLock.lock();
+        try {
+            if (!"dining".equals(tableState.getStatus())) {
+                throw new RuntimeException("餐桌上没有正在用餐的客人");
+            }
+            if (tableState.getServingDishId() == null) {
+                throw new RuntimeException("无法获取用餐菜品信息");
+            }
+            tableState.setStatus("settling");
+        } finally {
+            tableLock.unlock();
         }
         Long servingDishId = tableState.getServingDishId();
-        if (servingDishId == null) {
-            throw new RuntimeException("无法获取用餐菜品信息");
-        }
+        String guestName = tableState.getGuestName();
         Dish dish = dishRepository.findById(servingDishId)
                 .orElseThrow(() -> new RuntimeException("菜品信息不存在"));
         Player player = playerRepository.findWithLockById(playerId)
@@ -180,12 +203,16 @@ public class GameService {
         }
         playerRepository.save(player);
         taskService.updateProgress(playerId, 1, 1);
-        String guestName = tableState.getGuestName();
-        tableState.setStatus("empty");
-        tableState.setGuestName(null);
-        tableState.setPatience(null);
-        tableState.setRequiredDish(null);
-        tableState.setServingDishId(null);
+        tableLock.lock();
+        try {
+            tableState.setStatus("empty");
+            tableState.setGuestName(null);
+            tableState.setPatience(null);
+            tableState.setRequiredDish(null);
+            tableState.setServingDishId(null);
+        } finally {
+            tableLock.unlock();
+        }
         tableService.updateTableState(playerId, tableId, tableState);
         Map<String, Object> result = new HashMap<>();
         result.put("tableId", tableId);
@@ -210,12 +237,14 @@ public class GameService {
         if (task == null) {
             throw new RuntimeException("灶台上没有正在烹饪的菜品");
         }
-        if (!task.getPlayerId().equals(playerId)) {
-            throw new RuntimeException("灶台不属于该玩家");
-        }
-        long elapsed = ChronoUnit.SECONDS.between(task.getStartTime(), LocalDateTime.now());
-        if (elapsed < task.getCookTimeSeconds()) {
-            throw new RuntimeException("菜品尚未烹饪完成，还需等待" + (task.getCookTimeSeconds() - elapsed) + "秒");
+        synchronized (task) {
+            if (!task.getPlayerId().equals(playerId)) {
+                throw new RuntimeException("灶台不属于该玩家");
+            }
+            long elapsed = ChronoUnit.SECONDS.between(task.getStartTime(), LocalDateTime.now());
+            if (elapsed < task.getCookTimeSeconds()) {
+                throw new RuntimeException("菜品尚未烹饪完成，还需等待" + (task.getCookTimeSeconds() - elapsed) + "秒");
+            }
         }
         TableState tableState = tableService.getTableState(playerId, tableId);
         if (tableState == null) {
@@ -224,16 +253,22 @@ public class GameService {
         if (!tableState.isUnlocked()) {
             throw new RuntimeException("餐桌未解锁");
         }
-        if (!"waiting".equals(tableState.getStatus())) {
-            throw new RuntimeException("餐桌上没有等待上菜的客人");
-        }
-        if (tableState.getRequiredDish() != null && !tableState.getRequiredDish().equals(task.getDishName())) {
-            throw new RuntimeException("客人需要的是「" + tableState.getRequiredDish() + "」，不是「" + task.getDishName() + "」");
+        ReentrantLock tableLock = tableService.getTableLock(playerId, tableId);
+        tableLock.lock();
+        try {
+            if (!"waiting".equals(tableState.getStatus())) {
+                throw new RuntimeException("餐桌上没有等待上菜的客人");
+            }
+            if (tableState.getRequiredDish() != null && !tableState.getRequiredDish().equals(task.getDishName())) {
+                throw new RuntimeException("客人需要的是「" + tableState.getRequiredDish() + "」，不是「" + task.getDishName() + "」");
+            }
+            tableState.setStatus("dining");
+            tableState.setRequiredDish(null);
+            tableState.setServingDishId(task.getDishId());
+        } finally {
+            tableLock.unlock();
         }
         cookingCache.remove(stoveId);
-        tableState.setStatus("dining");
-        tableState.setRequiredDish(null);
-        tableState.setServingDishId(task.getDishId());
         tableService.updateTableState(playerId, tableId, tableState);
         Map<String, Object> result = new HashMap<>();
         result.put("tableId", tableId);

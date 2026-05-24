@@ -7,9 +7,9 @@ spring:
     restart:
       enabled: false
   datasource:
-    url: jdbc:mysql://localhost:3306/restaurant_game?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8
-    username: root
-    password: 12345678
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/restaurant_game?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:12345678}
     driver-class-name: com.mysql.cj.jdbc.Driver
   
   jpa:
@@ -21,6 +21,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jakarta.persistence.lock.timeout: 5000
     database-platform: org.hibernate.dialect.MySQL8Dialect
   sql:
     init:

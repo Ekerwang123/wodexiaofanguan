@@ -81,7 +81,7 @@ public class PlayerService {
         if (amount.compareTo(MIN_WITHDRAW) < 0) {
             throw new RuntimeException("单次提现最低1元");
         }
-        Player player = playerRepository.findById(playerId)
+        Player player = playerRepository.findWithLockById(playerId)
                 .orElseThrow(() -> new RuntimeException("玩家不存在"));
         if (amount.compareTo(player.getRedPacket()) > 0) {
             throw new RuntimeException("红包余额不足，当前余额 " + player.getRedPacket());

@@ -27,8 +27,10 @@ public class AdService {
     }
     @Transactional
     public Map<String, Object> verifyAndReward(Long playerId, String adId) {
-        AdRecord record = adRecordRepository.findById(adId)
-                .orElseThrow(() -> new RuntimeException("广告记录不存在"));
+        AdRecord record = adRecordRepository.findWithLockByAdId(adId);
+        if (record == null) {
+            throw new RuntimeException("广告记录不存在");
+        }
         if (!record.getPlayerId().equals(playerId)) {
             throw new RuntimeException("广告记录与玩家不匹配");
         }
